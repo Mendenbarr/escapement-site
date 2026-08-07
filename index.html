@@ -115,5 +115,18 @@
   </footer>
 </main>
 <script data-goatcounter="https://escapement.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+<script>
+  document.addEventListener('click', function (e) {
+    var a = e.target.closest && e.target.closest('a[href^="mailto:"]');
+    if (!a || !window.goatcounter || !window.goatcounter.count) return;
+    var box = a.href.replace('mailto:', '').split('@')[0];
+    var ref = new URLSearchParams(location.search).get('ref');
+    window.goatcounter.count({
+      path: 'click-' + box + (ref ? '-' + ref : ''),
+      title: 'Email link click',
+      event: true,
+    });
+  });
+</script>
 </body>
 </html>
