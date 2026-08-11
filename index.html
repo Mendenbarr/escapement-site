@@ -5,6 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Escapement — a cultivation RPG</title>
 <meta name="description" content="Escapement is a cultivation RPG set in a world of water clocks, immortals, and cockatoos — in development in the Blue Mountains, NSW. Now hiring Australia-based game artists.">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Escapement">
+<meta property="og:url" content="https://escapementgame.com/">
+<meta property="og:title" content="Escapement — a cultivation RPG">
+<meta property="og:description" content="Fate is not a metaphor here: the heavens have measured out every day of your life, including your last. You are the cog that won't keep time; each death winds the world back to day one. Jam the works.">
+<meta name="twitter:card" content="summary">
 <style>
   :root {
     --bg: #14181d;
@@ -58,6 +64,38 @@
     font-size: 0.9rem;
   }
   strong { color: var(--ink); }
+  .signup-box {
+    border: 1px solid var(--rule);
+    border-radius: 4px;
+    padding: 1.4rem 1.6rem;
+    margin: 2.5rem 0;
+  }
+  .signup-box h2 { margin-top: 0; }
+  .signup-form { display: flex; gap: 0.6rem; flex-wrap: wrap; margin-top: 1rem; }
+  .signup-form input[type="email"] {
+    flex: 1;
+    min-width: 12rem;
+    background: #1a1f26;
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    color: var(--ink);
+    padding: 0.55rem 0.75rem;
+    font-family: inherit;
+    font-size: 0.95rem;
+  }
+  .signup-form button {
+    background: none;
+    border: 1px solid var(--gold);
+    border-radius: 3px;
+    color: var(--gold);
+    padding: 0.55rem 1.4rem;
+    font-family: inherit;
+    font-size: 0.95rem;
+    cursor: pointer;
+  }
+  .signup-form button:hover { color: #eccd7f; border-color: #eccd7f; }
+  .signup-form button:disabled { opacity: 0.6; cursor: default; }
+  .hp { position: absolute; left: -9999px; }
 </style>
 </head>
 <body>
@@ -82,7 +120,26 @@
 
   <p>Explore the mountains. Dig up their secrets. Befriend disciples, rivals, and elders. Temper your body. Spar your allies. Meditate and gather qi. Brew pills in a borrowed cauldron. Fight the local wildlife. Meet your fated death on the day it was written, and wake on day one with a better plan. Again. And again. Until the works jam.</p>
 
-  <p class="quiet">More here when there's more to show.</p>
+  <div class="signup-box">
+    <h2>Newsletter</h2>
+    <p>Sign up for development news about Escapement.</p>
+    <ul>
+      <li>Development updates, a few times a year</li>
+      <li>Playtest invitations</li>
+      <li>Steam page and demo announcements</li>
+    </ul>
+    <form class="signup-form" id="signup-form" method="post" action="https://escapement-signup.escapement.workers.dev/subscribe">
+      <input type="email" name="email" required placeholder="you@example.com" aria-label="Email address">
+      <input class="hp" type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true">
+      <input type="hidden" name="ref" id="signup-ref">
+      <button type="submit">Sign Up</button>
+    </form>
+    <p class="quiet" id="signup-status" aria-live="polite"></p>
+    <p class="quiet">Your email is used only for this newsletter and never shared. Every email includes an unsubscribe link. A confirmation email will be sent to verify your address.</p>
+  </div>
+
+  <h2>Feedback</h2>
+  <p>For feedback or suggestions about the game, email <a href="mailto:hello@escapementgame.com">hello@escapementgame.com</a>.</p>
 
   <hr>
 
@@ -125,7 +182,7 @@
   <p>Email <a href="mailto:jobs@escapementgame.com">jobs@escapementgame.com</a> with your portfolio link, your location, your usual rates, your specialty (if any), and a couple of sentences on how you'd approach an original cultivation-fantasy world. No cover letter needed. <strong>Questions before applying are welcome at the same address.</strong></p>
 
   <footer>
-    <p>Hiring: <a href="mailto:jobs@escapementgame.com">jobs@escapementgame.com</a> · Everything else: <a href="mailto:hello@escapementgame.com">hello@escapementgame.com</a></p>
+    <p><a href="/faq/">FAQ</a> · Hiring: <a href="mailto:jobs@escapementgame.com">jobs@escapementgame.com</a> · Everything else: <a href="mailto:hello@escapementgame.com">hello@escapementgame.com</a></p>
     <p>© 2026 Jake · Blue Mountains, NSW</p>
   </footer>
 </main>
@@ -142,6 +199,52 @@
       event: true,
     });
   });
+
+  (function () {
+    var form = document.getElementById('signup-form');
+    var status = document.getElementById('signup-status');
+    if (!form || !status) return;
+
+    var params = new URLSearchParams(location.search);
+    var ref = params.get('ref');
+    if (ref) document.getElementById('signup-ref').value = ref;
+
+    var messages = {
+      'confirmed': 'Subscription confirmed. Thanks for signing up.',
+      'check-inbox': 'Check your inbox for a confirmation email.',
+      'error': 'Something went wrong. Try again, or email hello@escapementgame.com.',
+    };
+    var fromRedirect = params.get('signup');
+    if (fromRedirect && messages[fromRedirect]) status.textContent = messages[fromRedirect];
+
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+      var button = form.querySelector('button');
+      var body = new URLSearchParams(new FormData(form));
+      body.set('js', '1');
+      button.disabled = true;
+      status.textContent = 'Sending…';
+      fetch(form.action, { method: 'POST', body: body })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          status.textContent = data.message;
+          button.disabled = false;
+          if (!data.ok) return;
+          form.querySelector('input[type="email"]').value = '';
+          if (window.goatcounter && window.goatcounter.count) {
+            window.goatcounter.count({
+              path: 'signup' + (ref ? '-' + ref : ''),
+              title: 'Newsletter signup',
+              event: true,
+            });
+          }
+        })
+        .catch(function () {
+          status.textContent = messages['error'];
+          button.disabled = false;
+        });
+    });
+  })();
 </script>
 </body>
 </html>

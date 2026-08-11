@@ -1,0 +1,8 @@
+name = "escapement-signup"
+main = "src/index.js"
+compatibility_date = "2026-08-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "escapement_newsletter"
+database_id = "64f24d1b-7100-4a35-84f0-2faffe7d8f38"
