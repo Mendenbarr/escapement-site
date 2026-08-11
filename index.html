@@ -229,6 +229,13 @@
         .then(function (data) {
           status.textContent = data.message;
           button.disabled = false;
+          if (data.capped && window.goatcounter && window.goatcounter.count) {
+            window.goatcounter.count({
+              path: 'signup-capped' + (ref ? '-' + ref : ''),
+              title: 'Signup cap hit',
+              event: true,
+            });
+          }
           if (!data.ok) return;
           form.querySelector('input[type="email"]').value = '';
           if (window.goatcounter && window.goatcounter.count) {

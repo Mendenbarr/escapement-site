@@ -9,6 +9,7 @@
 const SITE = "https://escapementgame.com";
 const FROM_ADDRESS = "Escapement <newsletter@updates.escapementgame.com>";
 const REPLY_TO = "hello@escapementgame.com";
+const ALERT_TO = "hello@escapementgame.com";
 
 // Resend's free tier allows 100 emails/day; stay under it so a signup wave
 // degrades politely instead of erroring mid-send.
@@ -73,7 +74,14 @@ async function handleSubscribe(request, env) {
     "SELECT COUNT(*) AS n FROM subscribers WHERE confirm_sent_at > datetime('now', '-1 day')"
   ).first("n");
   if (sentToday >= DAILY_SEND_CAP) {
-    return subscribeReply(isFetch, false, "Signups are briefly paused. Try again tomorrow.", 429);
+    await maybeSendCapAlert(env, sentToday);
+    if (isFetch) {
+      return corsResponse(
+        { ok: false, capped: true, message: "Signups are briefly paused. Try again tomorrow." },
+        429
+      );
+    }
+    return Response.redirect(`${SITE}/?signup=error`, 302);
   }
 
   const existing = await env.DB.prepare(
@@ -172,6 +180,39 @@ async function handleUnsubscribe(url, env) {
 
 async function sendConfirmationEmail(env, workerOrigin, email, token) {
   const confirmUrl = `${workerOrigin}/confirm?t=${token}`;
+  await resendSend(env, email, "Confirm your subscription to the Escapement newsletter", [
+    "You requested to join the Escapement development newsletter (escapementgame.com).",
+    "",
+    `Confirm your subscription: ${confirmUrl}`,
+    "",
+    "If you didn't request this, ignore this email and you won't be subscribed.",
+  ].join("\n"));
+}
+
+// Emails the author when the daily send cap trips, at most once per 24 hours.
+// Best-effort: an alert failure must never affect the visitor's response.
+async function maybeSendCapAlert(env, sentToday) {
+  try {
+    const recent = await env.DB.prepare(
+      "SELECT value FROM meta WHERE key = 'last_cap_alert_at' AND value > datetime('now', '-1 day')"
+    ).first("value");
+    if (recent) return;
+    await resendSend(env, ALERT_TO, "Escapement newsletter: daily signup cap hit", [
+      `The signup endpoint hit its cap of ${DAILY_SEND_CAP} confirmation emails in the trailing 24 hours (count: ${sentToday}).`,
+      "New signups are being refused with a 'try again tomorrow' message until earlier sends age out of the window.",
+      "",
+      "If this is a real surge: raise DAILY_SEND_CAP in worker/src/index.js and consider Resend's paid tier",
+      "(free tier is 100 emails/day, 3,000/month). Refused attempts appear in GoatCounter as signup-capped events.",
+    ].join("\n"));
+    await env.DB.prepare(
+      "INSERT INTO meta (key, value) VALUES ('last_cap_alert_at', datetime('now')) ON CONFLICT(key) DO UPDATE SET value = datetime('now')"
+    ).run();
+  } catch (err) {
+    console.error("cap alert failed:", err);
+  }
+}
+
+async function resendSend(env, to, subject, text) {
   const response = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: {
@@ -180,16 +221,10 @@ async function sendConfirmationEmail(env, workerOrigin, email, token) {
     },
     body: JSON.stringify({
       from: FROM_ADDRESS,
-      to: [email],
+      to: [to],
       reply_to: REPLY_TO,
-      subject: "Confirm your subscription to the Escapement newsletter",
-      text: [
-        "You requested to join the Escapement development newsletter (escapementgame.com).",
-        "",
-        `Confirm your subscription: ${confirmUrl}`,
-        "",
-        "If you didn't request this, ignore this email and you won't be subscribed.",
-      ].join("\n"),
+      subject: subject,
+      text: text,
     }),
   });
   if (!response.ok) {
@@ -198,7 +233,7 @@ async function sendConfirmationEmail(env, workerOrigin, email, token) {
     console.error(`Resend error ${response.status}: ${detail}`);
     console.error(`key looks like re_...=${key.startsWith("re_")} contains whitespace=${/\s/.test(key)}`);
     console.error(`response headers=${JSON.stringify([...response.headers])}`);
-    throw new Error("confirmation email failed to send");
+    throw new Error("email failed to send");
   }
 }
 

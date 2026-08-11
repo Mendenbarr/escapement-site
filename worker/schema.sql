@@ -12,3 +12,8 @@ CREATE TABLE IF NOT EXISTS subscribers (
 
 CREATE INDEX IF NOT EXISTS idx_subscribers_token ON subscribers (token);
 CREATE INDEX IF NOT EXISTS idx_subscribers_ip_hash ON subscribers (ip_hash);
+
+CREATE TABLE IF NOT EXISTS meta (
+  key TEXT PRIMARY KEY,
+  value TEXT NOT NULL
+);

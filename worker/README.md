@@ -6,7 +6,9 @@ broadcasts are sent manually (list export below) until scale demands tooling.
 - `POST /subscribe` — form fields `email`, `ref` (optional source tag), `website`
   (honeypot, must be empty), `js=1` for a JSON reply instead of a redirect.
   Rate limits: 3 signups per IP per 10 minutes, 90 confirmation emails per day
-  (Resend free tier is 100/day).
+  (Resend free tier is 100/day). Tripping the daily cap emails an alert to
+  hello@ (at most one per 24h, dedup state in the `meta` table) and the site
+  logs a `signup-capped` GoatCounter event per refused attempt.
 - `GET /confirm?t=<token>` — confirms, redirects to the site.
 - `GET /unsubscribe?t=<token>` — unsubscribes, shows a plain page. Include
   this link (with the subscriber's token) in every manual broadcast.
